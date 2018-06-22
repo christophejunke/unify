@@ -437,7 +437,7 @@ optional. A list (V1 ... VN) is equivalent to (V1 ... VN &ENVIRONMENT)
 where the right part is thus empty.
 
 Both parts are used to establish symbol macros around BODY. More
-precisely, each VAR? symbol expand as (VALUE VAR), where VAR is an
+precisely, each VAR? symbol expands as (VALUE VAR), where VAR is an
 underlying logical variable. If VAR? is taken from the FRESH bindings,
 VAR is a new logical variable built with #'VAR. Otherwise, VAR refers
 to the enclosing binding. In both cases:
@@ -456,7 +456,7 @@ not their values. This brings more context to error handling.
 In the example below, note how the resulting list contains
 values (here: symbols), and not logical variables anymore. This is
 because variables referenced by ?a and ?b are instanciated to ground
-terms, and thus ?a and ?b evaluate as those values direcly. In order
+terms, and thus ?a and ?b evaluate as those values directly. In order
 to obtain the same behaviour outside of this macro, it is necessary to
 use (VALUE ?A) and (VALUE ?B) explicitly.
 
