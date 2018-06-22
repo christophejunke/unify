@@ -14,6 +14,19 @@
         (with-logical-variables (?a ?b)
           (unify `(,?a . (2 1)) `(3 . ,?b)))))
 
+(assert
+ (eq :warning
+     (handler-case
+         (term-information #(0 1 2 3)
+                           :ignore-ground-terms t
+                           :ignore-variables t
+                           :visitor (lambda (item &key walker)
+                                      (prog1 :atomic
+                                        (typecase item
+                                          (array (map () walker item))))))
+       (warning () :warning)
+       (:no-error () :normal))))
+
 (with-logical-variables (?a ?b)
   (multiple-value-bind (category vars ground)
       (term-information `(let ((,?a 3)) (list (if ,?b

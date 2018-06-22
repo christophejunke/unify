@@ -254,7 +254,9 @@ needed for VISTOR to explicitly return a category."
   (let ((ground-subterms (unless ignore-ground-terms
                            (make-hash-table :test #'equalp)))
         (variable-counters (unless ignore-variables
-                             (make-hash-table :test #'eq))))
+                             (make-hash-table :test #'eq)))
+        (*detect-multi-walk* nil))
+    (declare (special *detect-multi-walk*))
     (labels ((register-ground-term (kind term)
                (prog1 nil
                  (unless ignore-ground-terms
@@ -277,8 +279,11 @@ needed for VISTOR to explicitly return a category."
                            (if (%logic-variable-bound-p term)
                                (recurse (value term))
                                (register-variable term))))
-                         (t (nonvar-check
-                             (funcall visitor term :walker #'walker))))))
+                         (t
+                          (let ((*detect-multi-walk* 0))
+                            (declare (special *detect-multi-walk*))
+                            (nonvar-check
+                             (funcall visitor term :walker #'walker)))))))
                  (when debugp
                    (print `(,category ,term) *trace-output*))
                  category))
@@ -291,6 +296,9 @@ needed for VISTOR to explicitly return a category."
              (groundp (category)
                (member category '(:atomic :ground)))
              (walker (&rest terms)
+               (when (> (incf *detect-multi-walk*) 1)
+                 ;; TODO: replace by a predefined condition
+                 (warn "Multiple calls to WALKER from VISITOR."))
                (loop
                  for category in (mapcar #'recurse terms)
                  for term in terms
