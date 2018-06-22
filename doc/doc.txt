@@ -1,0 +1,5 @@
+Logic variables are Lisp objects with a name and a value (either a
+ground term, or another variable). The name is not constrained and can
+be any Lisp value. It is however usually a symbol starting with the
+#\? character. Naming with complex terms can be useful for
+traceability.
