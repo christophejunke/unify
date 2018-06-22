@@ -138,7 +138,7 @@ recommended to specialize this function for custom data-structures.")
 (defun check-occurrence (var term)
   "Errors with OCCURRENCE-ERROR if VAR occurs in TERM.
 
-Occurence check is performed before unificatiton to detect when a
+Occurence check is performed before unification to detect when a
 variable ?V is unified to a term which contains a reference to ?V. For
 example, the following unification fails when *OCCUR-CHECK* is
 non-NIL:
