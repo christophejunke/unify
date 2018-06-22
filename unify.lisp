@@ -217,8 +217,8 @@ LOGIC-VARIABLE. The function returns three values:
   + :GROUND if TERM is a ground value that is composed
     of ground subterms.
 
-  + :COMPOUND if TERM is non-ground value composed of 
-    either variables or ground subterms.
+  + :COMPOUND if TERM is non-ground non-atomic value composed of
+    variables, compound or ground subterms.
 
 - A hash-table (test EQ) mapping each variable present in TERM to its
   number of occurrences, or NIL if IGNORE-VARIABLES is T.  This
