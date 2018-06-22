@@ -160,7 +160,7 @@ letting *OCCUR-CHECK* be NIL."
            :first first
            :second second))
   (:method :around (first second)
-    "Always return first term, do not unify identical terms"
+    "Always return first term, trivially unify identical terms"
     (prog1 first
       (unless (eql first second)
         (call-next-method)))))
