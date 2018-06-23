@@ -91,9 +91,10 @@
   (handler-case (unify x y)
     (unification-error () (fail))))
 
+;; Not really, but ok for now
 (define-undo-expansion $unify (a b)
   (declare (ignore b))
-  `(reset-variable% ,a))
+  `(unify::%make-logic-variable-unbound ,a))
 
 (defun $member (term list)
   (typecase list
@@ -113,7 +114,7 @@
       ($unify out (nreverse tmp)))))
 
 (let ((result))
-  (with-logic-variables (?a ?b)
+  (with-logical-variables (?a ?b)
     (with-backtracking ()
       ($member ?a '(1 2 3))
       ($member ?b '(a b))
@@ -124,7 +125,7 @@
 (defmacro is (expr)
   `(or ,expr (fail)))
 
-(with-logic-variables (?a ?res)
+(with-logical-variables (?a ?res)
   (with-backtracking ()
     ($findall ?a
               (lambda ()
@@ -133,6 +134,13 @@
                   (is (oddp ?a))))
               ?res))
   ?res)
+
+;; BROKEN
+;; (with-logical-variables (?a ?b)
+;;   (with-backtracking ()
+;;     (alt
+;;       ($unify `(,?a (1 2 3)) `(0 (1 2 4)))
+;;       ($unify `(,?a (1 2 3)) `(9 (1 2 3))))))
 
 (defun test ()
   "Loop over all choices with fail, then succeed."
@@ -144,7 +152,7 @@
 
 (defun unif-test ()
   (with-backtracking ()
-    (unify::with-logic-variables (?a)
+    (unify::with-logical-variables (?a)
       (seq
         ($member ?a '(1 3 2 3))
         ($unify ?a 2)
