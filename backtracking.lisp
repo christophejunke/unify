@@ -50,10 +50,26 @@
 
 ;;;; ALTERNATION / SEQUENCE
 
+(define-condition cut () ())
+
+(defun cut () (signal 'cut))
+
 (defmacro alt1 (form1 form2)
   (if form2
-      `(restart-case (chain-expression ,form1)
-         (redo () (chain-expression ,form2)))
+      (with-gensyms (active-redo-p condition)
+        `(let ((,active-redo-p t))
+           ;; cuts too much?
+           (handler-bind ((cut (lambda (,condition)
+                                 (declare (ignore ,condition))
+                                 (when ,active-redo-p
+                                   (setf ,active-redo-p nil)))))
+             (restart-case (chain-expression ,form1)
+               (redo ()
+                 :report ,(format nil "Try alternative: ~a" form2)
+                 :test (lambda (,condition)
+                         (declare (ignore ,condition))
+                         ,active-redo-p)
+                 (chain-expression ,form2))))))
       form1))
 
 (defmacro seq1 (form1 form2)
@@ -122,6 +138,26 @@
       (fail)))
   result)
 
+(let ((result))
+  (with-logical-variables (?a ?b)
+    (with-backtracking ()
+      ($member ?a '(1 2 3))
+      (cut)
+      ($member ?b '(a b))
+      (push (cons ?a ?b) result)
+      (fail)))
+  result)
+
+(let ((result))
+  (with-logical-variables (?a ?b)
+    (with-backtracking ()
+      ($member ?a '(1 2 3))
+      ($member ?b '(a b))
+      (cut)
+      (push (cons ?a ?b) result)
+      (fail)))
+  result)
+
 (defmacro is (expr)
   `(or ,expr (fail)))
 
@@ -158,5 +194,11 @@
         ($unify ?a 2)
         (print ?a)))))
 
-;; (defmacro cut () nil)
-
+(let ((result))
+  (with-logical-variables (?a ?b)
+    (with-backtracking ()
+      ($member ?a '(1 2 3))
+      ($member ?b '(a b))
+      (push (cons ?a ?b) result)
+      (fail)))
+  result)
