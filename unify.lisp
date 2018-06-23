@@ -49,7 +49,7 @@
 
     If VALUE-OR-VARIABLE is of type LOGICAL-VARIABLE, either return
     the variable, if it is currently unbound, or its value if the
-    variable is instanciated. For all other value, return the value
+    variable is instantiated. For all other value, return the value
     itself."))
 
 (defclass logic-variable ()
@@ -69,7 +69,7 @@
 
 (defgeneric copy-variable (logic-variable &key &allow-other-keys)
   (:method ((variable logic-variable) &key &allow-other-keys)
-    (make-instance 'logic-variable))) 
+    (make-instance 'logic-variable)))
 
 (defmethod value :around ((variable logic-variable))
   (if (%logic-variable-bound-p variable)
@@ -83,6 +83,23 @@
 (defun var (&rest args)
   (apply #'make-instance *logic-variable-class* args))
 
+;; TODO when unification fails, unbind (see backtracking.lisp)
+;; TODO More docs
+
+(defgeneric unify (first-term second-term)
+  (:method (first second)
+    "Fail by default"
+    (error 'unification-error
+           :first first
+           :second second))
+  (:method :around (first second)
+    "Always return first term, trivially unify identical terms"
+    (prog1 first
+      (unless (eql first second)
+        (call-next-method))))
+  (:documentation
+   "Unify two terms by instantiating variables, if possible."))
+
 (defun (setf value) (term var)
   "Another way to unify VAR with TERM"
   (unify var term))
@@ -90,7 +107,7 @@
 ;;;; PRETTY PRINTING
 
 ;; TODO: print readably
-;; (reading back should unify all occurences of the same variable)
+;; (reading back should unify all occurrences of the same variable)
 ;; TODO: make-load-form (?)
 
 (defmethod print-object ((variable logic-variable) stream)
@@ -109,12 +126,12 @@
             (write #\space :stream stream :escape nil)
             (emit))))))
 
-;;;; OCCURENCE CHECK
+;;;; OCCURRENCE CHECK
 
 (defparameter *occur-check* t
   "Whether to perform an occur check before unifying terms.
 
-Disabling occurence check might lead to circular data structures. If
+Disabling occurrence check might lead to circular data structures. If
 you bind *OCCUR-CHECK* to NIL, it might be a good idea to also bind
 *PRINT-CIRCLE* to T.")
 
@@ -138,7 +155,7 @@ recommended to specialize this function for custom data-structures.")
 (defun check-occurrence (var term)
   "Errors with OCCURRENCE-ERROR if VAR occurs in TERM.
 
-Occurence check is performed before unification to detect when a
+Occurrence check is performed before unification to detect when a
 variable ?V is unified to a term which contains a reference to ?V. For
 example, the following unification fails when *OCCUR-CHECK* is
 non-NIL:
@@ -152,18 +169,6 @@ letting *OCCUR-CHECK* be NIL."
     (error 'occurrence-error
            :var var
            :term term)))
-
-(defgeneric unify (first-term second-term)
-  (:method (first second)
-    "Fail by default"
-    (error 'unification-error
-           :first first
-           :second second))
-  (:method :around (first second)
-    "Always return first term, trivially unify identical terms"
-    (prog1 first
-      (unless (eql first second)
-        (call-next-method)))))
 
 (defun unify-var-term (var term)
   (cond
@@ -211,14 +216,14 @@ LOGIC-VARIABLE. The function returns three values:
 
   + :VAR if TERM is a logical variable.
 
-  + :ATOMIC if TERM is a ground value that cannot be 
-    decomposed into subterms.
+  + :ATOMIC if TERM is a ground value that cannot be
+    decomposed into sub-terms.
 
   + :GROUND if TERM is a ground value that is composed
-    of ground subterms.
+    of ground sub-terms.
 
   + :COMPOUND if TERM is non-ground non-atomic value composed of
-    variables, compound or ground subterms.
+    variables, compound or ground sub-terms.
 
 - A hash-table (test EQ) mapping each variable present in TERM to its
   number of occurrences, or NIL if IGNORE-VARIABLES is T.  This
@@ -228,28 +233,28 @@ LOGIC-VARIABLE. The function returns three values:
 
 - A hash-table (test EQUALP) mapping each ground term to a count of
   its occurrences in TERM, or NIL if IGNORE-GROUND-TERMS is T. This
-  value is used for example by COPY-TERM to share common subterms.
+  value is used for example by COPY-TERM to share common sub-terms.
 
-When DEBUGP is non-NIL, the category of each visited subterm is
+When DEBUGP is non-NIL, the category of each visited sub-term is
 printed to *TRACE-OUTPUT*.
 
 VISITOR is a visitor function defaulting to COMPUTE-TERM-INFORMATION.
 It can be used to recurse into custom data-structures. The supplied
 function must accept a TERM mandatory argument and the keyword
-argument WALKER.  
+argument WALKER.
 
 VISITOR is expected to return a category among :ATOMIC, :GROUND
 and :COMPOUND (but not :VAR) by calling WALKER with as many argument
-as TERM has subterms. For example, a VISITOR function that knows how
+as TERM has sub-terms. For example, a VISITOR function that knows how
 to visit cons cell is defined as follows:
 
     (lambda (term &key walker)
       (funcall walker (car term) (cdr term)))
 
 The WALKER function is a closure built by TERM-INFORMATION that knows
-how to combine categories from subterms (e.g. a term is ground if all
-its subterms are ground). It is important NOT to call WALKER on each
-separate subterm, but on all subterms at once. It should be rarely
+how to combine categories from sub-terms (e.g. a term is ground if all
+its sub-terms are ground). It is important NOT to call WALKER on each
+separate sub-term, but on all sub-terms at once. It should be rarely
 needed for VISTOR to explicitly return a category."
   (let ((ground-subterms (unless ignore-ground-terms
                            (make-hash-table :test #'equalp)))
@@ -385,18 +390,18 @@ needed for VISTOR to explicitly return a category."
        ;; an alist is easier to use in a bidirectional way
        (hash-table-alist variables)))))
 
-;;;; COLLAPSABLE
+;;;; COLLAPSIBLE
 
-;; Collapsable variables vs. domains w.r.t. undo?
+;; Collapsible variables vs. domains w.r.t. undo?
 
-(defclass collapsable-logic-variable (logic-variable) ()
+(defclass collapsible-logic-variable (logic-variable) ()
   (:documentation
    "A logic variable which is adjusted when accessing its VALUE slot
-   to remove indirection through intermediate collapsable
+   to remove indirection through intermediate collapsible
    variables. The VALUE slot is either unbound, points to a ground
-   value, or to a non-collapsable variable."))
+   value, or to a non-collapsible variable."))
 
-(defmethod value ((variable collapsable-logic-variable))
+(defmethod value ((variable collapsible-logic-variable))
   (%set-logic-variable-value (call-next-method) variable))
 
 ;;;; USER-FRIENDLY BINDING
@@ -449,13 +454,13 @@ to the enclosing binding. In both cases:
       which is equivalent to (UNIFY ?VAR VAL). This is useful in
       particular when using macros that expands to SETF forms.
 
-Moreover, calls to UNIFY witin BODY are treated specially so that that
+Moreover, calls to UNIFY within BODY are treated specially so that that
 symbols representing logical variables refer to those variables and
 not their values. This brings more context to error handling.
 
 In the example below, note how the resulting list contains
 values (here: symbols), and not logical variables anymore. This is
-because variables referenced by ?a and ?b are instanciated to ground
+because variables referenced by ?a and ?b are instantiated to ground
 terms, and thus ?a and ?b evaluate as those values directly. In order
 to obtain the same behaviour outside of this macro, it is necessary to
 use (VALUE ?A) and (VALUE ?B) explicitly.
@@ -481,12 +486,12 @@ and use of logical variables, but is not required to manipulate them:
 
     ;; works only with constants (this is sufficient for tests)
     (defun infer-type (?type expr)
-      (unify ?type (etypecase expr 
+      (unify ?type (etypecase expr
                      (number :number)
                      (string :string))))
 
 The &ENVIRONMENT keyword is useful notably when accepting logical
-variables as function parameters. Continuing with the infernce system
+variables as function parameters. Continuing with the inference system
 example, here below ?RESULT, ?LEFT and ?RIGHT are placeholders for the
 types of their respective expressions. The names of fresh logical
 variables are set explicitly: they contain additional information
@@ -520,4 +525,3 @@ about what their variables represent.
 
 ;; just to avoid infinite macro expansions
 (defun unify% (a b) (unify a b))
-
