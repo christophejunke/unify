@@ -110,7 +110,7 @@
 ;; Not really, but ok for now
 (define-undo-expansion $unify (a b)
   (declare (ignore b))
-  `(unify::%make-logic-variable-unbound ,a))
+  `(unify::%make-logical-variable-unbound ,a))
 
 (defun $member (term list)
   (typecase list

@@ -35,16 +35,16 @@
 
    ;; Internals exported for extensions
    
-   #:logic-variable
-   #:collapsable-logic-variable
+   #:logical-variable
+   #:collapsable-logical-variable
 
-   #:*logic-variable-class*
+   #:*logical-variable-class*
    #:*occur-check*
    #:*print-details*
 
-   #:%logic-variable-boundp
-   #:%make-logic-variable-unbound
-   #:%set-logic-variable-value
+   #:%logical-variable-boundp
+   #:%make-logical-variable-unbound
+   #:%set-logical-variable-value
    
    ;; Errors
    

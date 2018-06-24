@@ -4,7 +4,7 @@
                  value
                  unify%
                  (setf value)
-                 %logic-variable-boundp
+                 %logical-variable-boundp
                  %replace-by-copies))
 
 ;;;; ERROR REPORTING
@@ -52,36 +52,36 @@
     variable is instantiated. For all other value, return the value
     itself."))
 
-(defclass logic-variable ()
+(defclass logical-variable ()
   ((name :accessor name
          :initarg :name
          :initform (gensym "?"))
    (%%value :reader value
-            :writer %set-logic-variable-value
+            :writer %set-logical-variable-value
             :initarg :value)))
 
-(defun %logic-variable-bound-p (variable)
+(defun %logical-variable-bound-p (variable)
   "NOT recursive."
   (slot-boundp variable '%%value))
 
-(defun %make-logic-variable-unbound (var)
+(defun %make-logical-variable-unbound (var)
   (slot-makunbound var '%%value))
 
-(defgeneric copy-variable (logic-variable &key &allow-other-keys)
-  (:method ((variable logic-variable) &key &allow-other-keys)
-    (make-instance 'logic-variable)))
+(defgeneric copy-variable (logical-variable &key &allow-other-keys)
+  (:method ((variable logical-variable) &key &allow-other-keys)
+    (make-instance 'logical-variable)))
 
-(defmethod value :around ((variable logic-variable))
-  (if (%logic-variable-bound-p variable)
+(defmethod value :around ((variable logical-variable))
+  (if (%logical-variable-bound-p variable)
       (value (call-next-method))
       variable))
 
-(defvar *logic-variable-class*
-  (find-class 'logic-variable)
+(defvar *logical-variable-class*
+  (find-class 'logical-variable)
   "Class to use when creating logic variables")
 
 (defun var (&rest args)
-  (apply #'make-instance *logic-variable-class* args))
+  (apply #'make-instance *logical-variable-class* args))
 
 ;; TODO when unification fails, unbind (see backtracking.lisp)
 ;; TODO More docs
@@ -110,12 +110,12 @@
 ;; (reading back should unify all occurrences of the same variable)
 ;; TODO: make-load-form (?)
 
-(defmethod print-object ((variable logic-variable) stream)
+(defmethod print-object ((variable logical-variable) stream)
   ""
   (with-accessors ((name name) (value value)) variable
     (flet ((emit ()
              (cond
-               ((%logic-variable-bound-p variable)
+               ((%logical-variable-bound-p variable)
                 (write value :stream stream))
                (:otherwise
                 (format stream "~S" name)))))
@@ -143,9 +143,9 @@ Default methods only knows how to recurse into cons cells. It is thus
 recommended to specialize this function for custom data-structures.")
   (:method (value term)
     (eq value term))
-  (:method (value (var logic-variable))
+  (:method (value (var logical-variable))
     (or (call-next-method)
-        (and (%logic-variable-bound-p var)
+        (and (%logical-variable-bound-p var)
              (occurs value (value var)))))
   (:method (value (expr cons))
     (or (call-next-method)
@@ -172,22 +172,22 @@ letting *OCCUR-CHECK* be NIL."
 
 (defun unify-var-term (var term)
   (cond
-    ((%logic-variable-bound-p var)
+    ((%logical-variable-bound-p var)
      (unify (value var) term))
     (t (when *occur-check*
          (check-occurrence var term))
-       (%set-logic-variable-value term var))))
+       (%set-logical-variable-value term var))))
 
-(defmethod unify ((v1 logic-variable) (v2 logic-variable))
+(defmethod unify ((v1 logical-variable) (v2 logical-variable))
   (cond
-    ((%logic-variable-bound-p v1) (unify (value v1) v2))
-    ((%logic-variable-bound-p v2) (unify v1 (value v2)))
+    ((%logical-variable-bound-p v1) (unify (value v1) v2))
+    ((%logical-variable-bound-p v2) (unify v1 (value v2)))
     (t (call-next-method))))
 
-(defmethod unify ((var logic-variable) term)
+(defmethod unify ((var logical-variable) term)
   (unify-var-term var term))
 
-(defmethod unify (term (var logic-variable))
+(defmethod unify (term (var logical-variable))
   (unify-var-term var term))
 
 (defmethod unify ((expr1 cons) (expr2 cons))
@@ -210,7 +210,7 @@ letting *OCCUR-CHECK* be NIL."
   "Walk a term and extract information about variables and ground terms.
 
 TERM is a Common Lisp value that might hold instances of
-LOGIC-VARIABLE. The function returns three values:
+LOGICAL-VARIABLE. The function returns three values:
 
 - A category, a keyword among the following:
 
@@ -279,9 +279,9 @@ needed for VISTOR to explicitly return a category."
              (recurse (term)
                (let ((category
                        (typecase term
-                         (logic-variable
+                         (logical-variable
                           (var-check
-                           (if (%logic-variable-bound-p term)
+                           (if (%logical-variable-bound-p term)
                                (recurse (value term))
                                (register-variable term))))
                          (t
@@ -356,8 +356,8 @@ needed for VISTOR to explicitly return a category."
                (if (gethash term subterms)
                    term
                    (typecase term
-                     (logic-variable
-                      (if (%logic-variable-bound-p term)
+                     (logical-variable
+                      (if (%logical-variable-bound-p term)
                           (recurse (value term))
                           (gethash term variables term)))
                      (cons (cons (recurse (car term))
@@ -379,7 +379,7 @@ needed for VISTOR to explicitly return a category."
                (typecase term
                  (cons (cons (recurse (car term))
                              (recurse (cdr term))))
-                 (logic-variable
+                 (logical-variable
                   (or (gethash term variables)
                       (recurse (value term))))
                  (t (if copy-function
@@ -394,15 +394,15 @@ needed for VISTOR to explicitly return a category."
 
 ;; Collapsible variables vs. domains w.r.t. undo?
 
-(defclass collapsible-logic-variable (logic-variable) ()
+(defclass collapsible-logical-variable (logical-variable) ()
   (:documentation
    "A logic variable which is adjusted when accessing its VALUE slot
    to remove indirection through intermediate collapsible
    variables. The VALUE slot is either unbound, points to a ground
    value, or to a non-collapsible variable."))
 
-(defmethod value ((variable collapsible-logic-variable))
-  (%set-logic-variable-value (call-next-method) variable))
+(defmethod value ((variable collapsible-logical-variable))
+  (%set-logical-variable-value (call-next-method) variable))
 
 ;;;; USER-FRIENDLY BINDING
 
