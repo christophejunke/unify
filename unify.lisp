@@ -12,7 +12,7 @@
 (defgeneric report-format (object)
   (:method-combination append :most-specific-last))
 
-(defgeneric report-error (object stream)
+(defgeneric report-dispatch (object stream)
   (:method (object stream)
     (format stream "~&~{~@?~^ ~}" (report-format object))))
 
@@ -22,7 +22,7 @@
   ((%first-term :initarg :first :reader %first-term)
    (%second-term :initarg :second :reader %second-term))
   (:documentation "Error related to unification of two terms")
-  (:report report-error))
+  (:report report-dispatch))
 
 (defmethod report-format append ((condition unification-error))
   (list "Cannot unify ~s and ~s."
@@ -33,7 +33,7 @@
   ((%first-term :initarg :var :reader %var)
    (%second-term :initarg :term :reader %term))
   (:documentation "Unification error due to occurence check.")
-  (:report report-error))
+  (:report report-dispatch))
 
 (defmethod report-format append ((condition occurrence-error))
   (list "Variable ~a occurs in term ~a."
