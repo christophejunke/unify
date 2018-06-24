@@ -19,26 +19,26 @@
 ;;;; ERRORS
 
 (define-condition unification-error ()
-  ((%first-term :initarg :first :reader unification-error/first-term)
-   (%second-term :initarg :second :reader unification-error/second-term))
+  ((%first-term :initarg :first :reader %first-term)
+   (%second-term :initarg :second :reader %second-term))
   (:documentation "Error related to unification of two terms")
   (:report report-error))
 
 (defmethod report-format append ((condition unification-error))
   (list "Cannot unify ~s and ~s."
-        (unification-error/first-term condition)
-        (unification-error/second-term condition)))
+        (%first-term condition)
+        (%second-term condition)))
 
 (define-condition occurrence-error (unification-error)
-  ((%first-term :initarg :var :reader occurrence-error/var)
-   (%second-term :initarg :term :reader occurrence-error/term))
+  ((%first-term :initarg :var :reader %var)
+   (%second-term :initarg :term :reader %term))
   (:documentation "Unification error due to occurence check.")
   (:report report-error))
 
 (defmethod report-format append ((condition occurrence-error))
   (list "Variable ~a occurs in term ~a."
-        (occurrence-error/var condition)
-        (occurrence-error/term condition)))
+        (%var condition)
+        (%term condition)))
 
 ;;;; VARIABLES
 
