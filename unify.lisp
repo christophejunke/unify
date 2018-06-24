@@ -274,66 +274,62 @@ needed for VISTOR to explicitly return a category."
   (let ((ground-subterms (unless ignore-ground-terms
                            (make-hash-table :test #'equalp)))
         (variable-counters (unless ignore-variables
-                             (make-hash-table :test #'eq)))
-        (*detect-multi-walk* nil))
-    (declare (special *detect-multi-walk*))
-    (labels ((register-ground-term (kind term)
-               (prog1 nil
-                 (unless ignore-ground-terms
-                   (ecase kind
-                     ;; :var :compound are non-ground
-                     ;; :atomic is :ground but do not register it
-                     ;; (it might be register if part of a larger term)
-                     ((:var :atomic :compound))
-                     (:ground
-                      (incf (gethash term ground-subterms 0)))))))
-             (register-variable (variable)
-               (prog1 :var
-                 (unless ignore-variables
-                   (incf (gethash variable variable-counters 0)))))
-             (recurse (term)
-               (let ((category
-                       (typecase term
-                         (logical-variable
-                          (var-check
-                           (if (%logical-variable-bound-p term)
-                               (recurse (value term))
-                               (register-variable term))))
-                         (t
-                          (let ((*detect-multi-walk* 0))
-                            (declare (special *detect-multi-walk*))
-                            (nonvar-check
-                             (funcall visitor term :walker #'walker)))))))
-                 (when debugp
-                   (print `(,category ,term) *trace-output*))
-                 category))
-             (nonvar-check (category)
-               (prog1 category
-                 (check-type category (member :atomic :ground :compound))))
-             (var-check (category)
-               (prog1 category
-                 (check-type category (member :var :atomic :ground :compound))))
-             (groundp (category)
-               (member category '(:atomic :ground)))
-             (walker (&rest terms)
-               (when (> (incf *detect-multi-walk*) 1)
-                 (warn 'multiple-walk :terms terms :visitor visitor))
-               (loop
-                 for category in (mapcar #'recurse terms)
-                 for term in terms
-                 for groundp = (groundp category)
-                 count t into total
-                 count groundp into ground-count
-                 when groundp
-                   collect (cons category term) into ground-terms
-                 finally
-                    (return
-                      (cond
-                        ((= total ground-count) :ground)
-                        ((zerop ground-count) :compound)
-                        (t (dolist (pair ground-terms :compound)
-                             (destructuring-bind (groundp . term) pair
-                               (register-ground-term groundp term)))))))))
+                             (make-hash-table :test #'eq))))
+    (labels
+        ((register-ground-term (kind term)
+           (prog1 nil
+             (unless ignore-ground-terms
+               (ecase kind
+                 ((:var :atomic :compound))
+                 (:ground
+                  (incf (gethash term ground-subterms 0)))))))
+         (register-variable (variable)
+           (prog1 :var
+             (unless ignore-variables
+               (incf (gethash variable variable-counters 0)))))
+         (nonvar-check (category)
+           (prog1 category
+             (check-type category (member :atomic :ground :compound))))
+         (var-check (category)
+           (prog1 category
+             (check-type category (member :var :atomic :ground :compound))))
+         (groundp (category)
+           (member category '(:atomic :ground)))
+         (recurse (term)
+           "Visit term and return category "
+           (let ((category
+                   (if (typep term 'logical-variable)
+                       (var-check
+                        (if (%logical-variable-bound-p term)
+                            (recurse (value term))
+                            (register-variable term)))
+                       (let ((%%detect-multi-walk 0))
+                         (declare (special %%detect-multi-walk))
+                         (nonvar-check
+                          (funcall visitor term :walker #'walker))))))
+             (when debugp
+               (print `(,category ,term) *trace-output*))
+             category))
+         (walker (&rest terms)
+           (declare (special %%detect-multi-walk))
+           (when (> (incf %%detect-multi-walk) 1)
+             (warn 'multiple-walk :terms terms :visitor visitor))
+           (loop
+             for category in (mapcar #'recurse terms)
+             for term in terms
+             for groundp = (groundp category)
+             count t into total
+             count groundp into ground-count
+             when groundp
+               collect (cons category term) into ground-terms
+             finally
+                (return
+                  (cond
+                    ((= total ground-count) :ground)
+                    ((zerop ground-count) :compound)
+                    (t (dolist (pair ground-terms :compound)
+                         (destructuring-bind (groundp . term) pair
+                           (register-ground-term groundp term)))))))))
       (values (recurse term)
               variable-counters
               ground-subterms))))
