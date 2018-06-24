@@ -40,6 +40,21 @@
         (%var condition)
         (%term condition)))
 
+(define-condition multiple-walk (warning)
+  ((%visitor :initarg :visitor :reader %visitor)
+   (%terms :initarg :term :reader %terms))
+  (:documentation "")
+  (:report report-dispatch))
+
+(defmethod report-format append ((warning multiple-walk))
+  (list
+   "Unexpected: multiple calls to WALKER from visitor:~% ~a
+
+The result is unlikely to be correct when WALKER is called more than
+once for a single term. The call to WALKER should accept as many
+arguments as a term has sub-terms."
+   (%visitor warning)))
+
 ;;;; VARIABLES
 
 (defgeneric value (value-or-variable)
@@ -302,8 +317,7 @@ needed for VISTOR to explicitly return a category."
                (member category '(:atomic :ground)))
              (walker (&rest terms)
                (when (> (incf *detect-multi-walk*) 1)
-                 ;; TODO: replace by a predefined condition
-                 (warn "Multiple calls to WALKER from VISITOR."))
+                 (warn 'multiple-walk :terms terms :visitor visitor))
                (loop
                  for category in (mapcar #'recurse terms)
                  for term in terms
