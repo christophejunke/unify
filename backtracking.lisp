@@ -51,14 +51,12 @@
 ;;;; ALTERNATION / SEQUENCE
 
 (define-condition cut () ())
-
 (defun cut () (signal 'cut))
 
 (defmacro alt1 (form1 form2)
   (if form2
       (with-gensyms (active-redo-p condition)
         `(let ((,active-redo-p t))
-           ;; cuts too much?
            (handler-bind ((cut (lambda (,condition)
                                  (declare (ignore ,condition))
                                  (when ,active-redo-p
