@@ -12,53 +12,45 @@
    ;; Variables
    
    #:with-logical-variables
-   #:make-var
-   #:value
+   #:var
    #:name
 
    ;; Terms
    
+   #:value
    #:unify
-
-   #:var
-   #:nonvar
-   #:ground
-
    #:make-copy
-   
    #:copy-term
-   #:deep-copy-term
-   #:shallow-copy
-
    #:term-information
    #:term-variables
 
-   ;; Internals exported for extensions
-   
-   #:logical-variable
-   #:collapsable-logical-variable
-
-   #:*logical-variable-class*
-   #:*occur-check*
-   #:*print-details*
-
-   #:%logical-variable-boundp
-   #:%make-logical-variable-unbound
-   #:%set-logical-variable-value
-   
    ;; Errors
    
    #:unification-error
-   #:unification-error/first-term
-   #:unification-error/second-term
+   #:occurrence-error))
 
-   #:occurrence-error 
-   #:occurrence-error/var
-   #:occurrence-error/term))
+(defpackage :unification.internals
+  (:use :cl :unification)
+  (:documentation "Internals exported for extension")
+  (:export #:logical-variable
+           #:collapsible-logical-variable
 
+           #:*logical-variable-class*
+           #:*occur-check*
+           #:*print-details*
+
+           #:%logical-variable-boundp
+           #:%make-logical-variable-unbound
+           #:%set-logical-variable-value
+
+           #:%first-term
+           #:%second-term
+           #:%var
+           #:%term))
+
+(in-package :unification)
 (declaim (inline unify-var-term
                  value
                  unify%
                  (setf value)
-                 %logical-variable-boundp
-                 %replace-by-copies))
+                 %logical-variable-boundp))
