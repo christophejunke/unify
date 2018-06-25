@@ -1,4 +1,4 @@
-(defpackage :unify
+(defpackage :unification
   (:use :cl)
   (:documentation
    "Logical variables and unification.")
@@ -56,3 +56,9 @@
    #:occurrence-error/var
    #:occurrence-error/term))
 
+(declaim (inline unify-var-term
+                 value
+                 unify%
+                 (setf value)
+                 %logical-variable-boundp
+                 %replace-by-copies))

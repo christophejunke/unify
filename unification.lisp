@@ -1,11 +1,4 @@
-(in-package :unify)
-
-(declaim (inline unify-var-term
-                 value
-                 unify%
-                 (setf value)
-                 %logical-variable-boundp
-                 %replace-by-copies))
+(in-package :unification)
 
 ;;;; ERROR REPORTING
 
@@ -43,7 +36,7 @@
 (define-condition multiple-walk (warning)
   ((%visitor :initarg :visitor :reader %visitor)
    (%terms :initarg :term :reader %terms))
-  (:documentation "")
+  (:documentation "Bad usage of walker function from visitor.")
   (:report report-dispatch))
 
 (defmethod report-format append ((warning multiple-walk))
@@ -83,8 +76,9 @@ arguments as a term has sub-terms."
   (slot-makunbound var '%%value))
 
 (defgeneric copy-variable (logical-variable &key &allow-other-keys)
-  (:method ((variable logical-variable) &key &allow-other-keys)
-    (make-instance 'logical-variable)))
+  (:method ((variable logical-variable)
+            &key (class (class-of variable)) &allow-other-keys)
+    (make-instance class)))
 
 (defmethod value :around ((variable logical-variable))
   (if (%logical-variable-bound-p variable)
@@ -119,6 +113,13 @@ arguments as a term has sub-terms."
   "Another way to unify VAR with TERM"
   (unify var term))
 
+;;;; TERMS
+
+(defgeneric subterms (term)
+  (:documentation "List all sub-terms of a term")
+  (:method (_) nil)
+  (:method ((list cons)) list))
+
 ;;;; PRETTY PRINTING
 
 ;; TODO: print readably
@@ -126,7 +127,6 @@ arguments as a term has sub-terms."
 ;; TODO: make-load-form (?)
 
 (defmethod print-object ((variable logical-variable) stream)
-  ""
   (with-accessors ((name name) (value value)) variable
     (flet ((emit ()
              (cond
@@ -154,18 +154,18 @@ you bind *OCCUR-CHECK* to NIL, it might be a good idea to also bind
   (:documentation
    "Return non-NIL if VALUE occurs in TERM.
 
-Default methods only knows how to recurse into cons cells. It is thus
-recommended to specialize this function for custom data-structures.")
+Default methods are specialized for logical variables and in the
+general case recurse through subterms as given by #'SUBTERMS.")
   (:method (value term)
     (eq value term))
   (:method (value (var logical-variable))
     (or (call-next-method)
         (and (%logical-variable-bound-p var)
              (occurs value (value var)))))
-  (:method (value (expr cons))
+  (:method (value term)
     (or (call-next-method)
-        (occurs value (car expr))
-        (occurs value (cdr expr)))))
+        (some (lambda (term) (occurs value term))
+              (subterms term)))))
 
 (defun check-occurrence (var term)
   "Errors with OCCURRENCE-ERROR if VAR occurs in TERM.
@@ -210,11 +210,25 @@ letting *OCCUR-CHECK* be NIL."
   (unify (cdr expr1) (cdr expr2)))
 
 (defgeneric compute-term-information (term &key walker)
-  (:method (otherwise &key &allow-other-keys) :atomic)
-  (:method ((cons cons) &key walker)
-    (funcall walker
-             (car cons)
-             (cdr cons))))
+  (:documentation
+   "Generic visitor function for TERM-INFORMATION.
+
+Accept a TERM and a WALKER closure and calls WALKER with all the
+sub-terms of TERM. Must return :ATOMIC, :GROUND or :COMPOUND.
+
+The default methods calls SUBTERMS to extract child elemnts, except
+for CONS cells which are implemented directly.")
+  (:method ((term cons) &key walker)
+    "Explicit method for CONS cells that works differently than SUBTERMS.
+
+COMPUTE-TERM-INFORMATION is used by TERM-INFORMATION to extract common
+ground subterms. Walking cons-cell by cons-cell allows to share parts
+of a list, which would not be the case by walking all elements at
+once."
+    (funcall walker (car term) (cdr term)))
+  (:method (term &key walker)
+    "Default method: walk all subterms."
+    (apply walker (subterms term))))
 
 (defun term-information
     (term &key
@@ -269,8 +283,9 @@ to visit cons cell is defined as follows:
 The WALKER function is a closure built by TERM-INFORMATION that knows
 how to combine categories from sub-terms (e.g. a term is ground if all
 its sub-terms are ground). It is important NOT to call WALKER on each
-separate sub-term, but on all sub-terms at once. It should be rarely
-needed for VISTOR to explicitly return a category."
+separate sub-term, but on all sub-terms at once (a warning is emitted
+otherwise). It should be rarely needed for VISTOR to explicitly return
+a :GROUND or :COMPOUND category, since WALKER already computes it."
   (let ((ground-subterms (unless ignore-ground-terms
                            (make-hash-table :test #'equalp)))
         (variable-counters (unless ignore-variables
@@ -325,6 +340,7 @@ needed for VISTOR to explicitly return a category."
              finally
                 (return
                   (cond
+                    ((zerop total) :atomic)
                     ((= total ground-count) :ground)
                     ((zerop ground-count) :compound)
                     (t (dolist (pair ground-terms :compound)
@@ -338,30 +354,34 @@ needed for VISTOR to explicitly return a category."
   (hash-table-keys
    (nth-value 1 (term-information term :ignore-ground-terms t))))
 
-(defun %replace-by-copies (variables-counter)
-  (maphash (lambda (k v)
-             (declare (ignore v))
-             (setf (gethash k variables-counter)
-                   (copy-variable k)))
-           variables-counter)
-  variables-counter)
-
-(defgeneric make-copy (term &optional deep)
+(defgeneric make-copy (term &key copier)
   (:documentation
-   "Copying a term. Specialize for user-defined terms.")
-  (:method (any &optional deep)
-    (cond
-      (deep (typecase any
-              ((or number character) any)
-              (t (call-next-method))))
-      (t any))))
+   "Build a copy of a term based on sub-term copies.
+
+Specialize for user-defined terms. COPIER is a function of one
+parameter which should be called to copy each subterm. MAKE-COPY is
+responsible for assembling copies of sub-terms into a fresh term that
+unifies with the input one.")
+  (:method (value &key &allow-other-keys) value)
+  (:method ((var logical-variable) &key &allow-other-keys)
+    (copy-variable var))
+  (:method ((cons cons) &key copier)
+    (cons (funcall copier (car cons))
+          (funcall copier (cdr cons)))))
 
 (defun copy-term (term &optional (copy-function #'make-copy))
-  "... shares common ground subterms ..."
+  "Copy TERM recursively while sharing common ground sub-terms.
+
+The primary return value is a term that unifies with TERM. The
+secondary return value is an association list mapping original
+variables to the fresh variables introduced in the second term."
   (multiple-value-bind (category variables subterms) (term-information term)
     (when (eq category :ground)
       (return-from copy-term term))
-    (%replace-by-copies variables)
+    (maphash (lambda (var v)
+               (declare (ignore v))
+               (setf (gethash var variables) (funcall copy-function var)))
+             variables)
     (labels ((recurse (term)
                (if (gethash term subterms)
                    term
@@ -370,40 +390,17 @@ needed for VISTOR to explicitly return a category."
                       (if (%logical-variable-bound-p term)
                           (recurse (value term))
                           (gethash term variables term)))
-                     (cons (cons (recurse (car term))
-                                 (recurse (cdr term))))
-                     (t (if copy-function
-                            (funcall copy-function term)
-                            (error "Cannot copy")))))))
+                     (t (funcall copy-function term :copier #'recurse))))))
       (values
        (recurse term)
-       (hash-table-alist variables)))))
-
-(defun deep-copy-term (term &optional (copy-function #'make-copy))
-  "... deep copy ..."
-  (let ((variables (%replace-by-copies
-                    (nth-value 1 (term-information
-                                  term
-                                  :ignore-ground-terms t)))))
-    (labels ((recurse (term)
-               (typecase term
-                 (cons (cons (recurse (car term))
-                             (recurse (cdr term))))
-                 (logical-variable
-                  (or (gethash term variables)
-                      (recurse (value term))))
-                 (t (if copy-function
-                        (funcall copy-function term)
-                        (error "Cannot copy"))))))
-      (values
-       (recurse term)
-       ;; an alist is easier to use in a bidirectional way
        (hash-table-alist variables)))))
 
 ;;;; COLLAPSIBLE
 
-;; Collapsible variables vs. domains w.r.t. undo?
-
+;; Collapsible variables work when no backtracking is expected.  They
+;; flatten the tree of variables that might be produced when unifying
+;; variables with other variables. Not sure if they behave correctly
+;; when introducing domains and/or backtracking.
 (defclass collapsible-logical-variable (logical-variable) ()
   (:documentation
    "A logic variable which is adjusted when accessing its VALUE slot
