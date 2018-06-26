@@ -65,6 +65,7 @@ arguments as a term has sub-terms."
          :initarg :name
          :initform (gensym "?"))
    (%%value :reader value
+            :reader %get-logical-variable-value
             :writer %set-logical-variable-value
             :initarg :value)))
 
@@ -135,7 +136,7 @@ arguments as a term has sub-terms."
                (:otherwise
                 (format stream "~S" name)))))
       (if *print-pretty*
-          (emit)
+          (progn (princ name stream) (princ #\= stream) (emit))
           (print-unreadable-object (variable stream :type t)
             (write (name variable) :stream stream)
             (write #\space :stream stream :escape nil)
@@ -527,7 +528,10 @@ about what their variables represent.
                    (symbol-macrolet ,sym-bindings
                      (macrolet ((unify (,a ,b)
                                   `(symbol-macrolet ,',real-bindings
-                                     (unify% ,,a ,,b))))
+                                     (unify% ,,a ,,b)))
+                                (with-raw-variables (,a)
+                                  `(symbol-macrolet ,',real-bindings
+                                     ,,a)))
                        ,@body)))))))
 
 ;; just to avoid infinite macro expansions
